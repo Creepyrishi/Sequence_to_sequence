@@ -48,11 +48,24 @@ df['E_int_tokenize'] = df['English words/sentences'].apply(E_int_tokenize)
 df['F_int_tokenize'] = df['French words/sentences'].apply(F_int_tokenize)
 
 # Padding
+# def collate_fn(batch):
+#     src_batch, tgt_batch = zip(*batch)
+#     src_padded = pad_sequence(src_batch, batch_first=True, padding_value=E_w_to_i['<pad>'])
+#     tgt_padded = pad_sequence(tgt_batch, batch_first=True, padding_value=F_w_to_i['<pad>'])
+#     return src_padded, tgt_padded
+# This cause last error coz i am padding both seprately
+
 def collate_fn(batch):
     src_batch, tgt_batch = zip(*batch)
-    src_padded = pad_sequence(src_batch, batch_first=True, padding_value=E_w_to_i['<pad>'])
-    tgt_padded = pad_sequence(tgt_batch, batch_first=True, padding_value=F_w_to_i['<pad>'])
+
+    # Find max length across both source and target sequences
+    max_len = max(max(seq.size(0) for seq in src_batch), max(seq.size(0) for seq in tgt_batch))
+    # Pad source and target to the same length
+    src_padded = pad_sequence([torch.cat([seq, torch.full((max_len - seq.size(0),), E_w_to_i['<pad>'], dtype=seq.dtype)]) for seq in src_batch], batch_first=True)
+    tgt_padded = pad_sequence([torch.cat([seq, torch.full((max_len - seq.size(0),), F_w_to_i['<pad>'], dtype=seq.dtype)]) for seq in tgt_batch], batch_first=True)
+
     return src_padded, tgt_padded
+
 
 class translation_dataset(Dataset):
     def __init__(self, X, y):
@@ -69,7 +82,7 @@ class translation_dataset(Dataset):
         return torch.tensor(src, dtype=torch.long), torch.tensor(target, dtype=torch.long)
     
 dataset = translation_dataset(df['E_int_tokenize'], df['F_int_tokenize'])
-batched_dataset = DataLoader(dataset=dataset, batch_size=36, shuffle= True, drop_last= False, collate_fn=collate_fn)
+batched_dataset = DataLoader(dataset=dataset, batch_size=36, shuffle= True, drop_last= True, collate_fn=collate_fn)
 
 def get_batched_dataset():
     return batched_dataset

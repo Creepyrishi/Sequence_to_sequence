@@ -36,35 +36,25 @@ class Decoder(nn.Module):
     def forward(self, X, hidden, cell):
         # Decoder will work word by word
         # The dimention of the X will be N but we need 1, N
-        X = X.unsqueeze(0)
-
+        if X.dim() == 1:
+            X = X.unsqueeze(0)
         embed = self.embed(X)
-        print("Input shape:", embed.shape)
-        print("Hidden shape:", hidden.shape)
-        print("Cell shape:", cell.shape)
 
-        if embed.shape != hidden.shape:
-            s = embed.shape[1]
-            hidden = hidden[:, :s, :]
-            cell = cell[:, :s, :]
-        
-        # Make hidden and cell states contiguous
-        hidden = hidden.contiguous()
-        cell = cell.contiguous()
 
         output, (hn, cn) = self.rnn(embed, (hidden, cell))
 
         prediction = self.fc(output)
-        prediction = prediction.squeeze()
+        prediction = prediction.squeeze(0)
 
         return prediction, hn, cn
 
 
 class Seq2Seq(nn.Module):
-    def __init__(self, encoder, decoder, vocab_size_eng, vocab_size_french, embedding_size, hidden_size, num_layer, p):
+    def __init__(self, encoder, decoder):
         super(Seq2Seq, self).__init__()
-        self.encoder = encoder(vocab_size_eng, embedding_size, hidden_size, num_layer, p)
-        self.decoder = decoder(vocab_size_french, embedding_size, hidden_size, num_layer, p)
+        self.encoder = encoder
+        self.decoder = decoder
+
     
     def forward(self, source, target):
 
@@ -74,14 +64,17 @@ class Seq2Seq(nn.Module):
         hn, cn = self.encoder(source)
 
         no_of_token_in_target, batch_size = target.shape
-        outputs = torch.zeros(size=(no_of_token_in_target,  batch_size, self.decoder.vocab_size))
+        outputs = torch.zeros(size=(no_of_token_in_target,  batch_size, self.decoder.vocab_size), device=source.device)
         # Shape of outputs (no of token, batch size, vocab_size_frech)
 
         teach = target[0] # Setting first word
         for t in range(1, no_of_token_in_target):
+                    
+            # print("Input shape:", teach.shape)
+            # print("Hidden shape:", hn.shape)
+            # print("Cell shape:", cn.shape)
             prediction, hn, cn = self.decoder(teach, hn, cn)
             outputs[t] = prediction
             teach = target[t, :] # Gets word in 0 postion from all sentences or sequence from whole batch [get the ground truth for teacher forcing
 
         return outputs
-

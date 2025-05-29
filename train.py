@@ -8,7 +8,7 @@ import os
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
-
+    
 # Get dataset and vocabulary sizes
 batched_dataset = get_batched_dataset()
 F_vocab_size, E_vocab_size = get_vocab_sizes()
@@ -23,9 +23,9 @@ learning_rate = 0.001
 epochs = 10
 
 # Initialize model
-encoder = Encoder
-decoder = Decoder
-model = Seq2Seq(encoder, decoder, E_vocab_size, F_vocab_size, embedding_size, hidden_size, num_layers, dropout)
+encoder = Encoder(E_vocab_size, embedding_size, hidden_size, num_layers, dropout)
+decoder = Decoder(F_vocab_size, embedding_size, hidden_size, num_layers, dropout)
+model = Seq2Seq(encoder, decoder)
 model = model.to(device)
 
 def prepare_sentence(sentence):
@@ -35,7 +35,7 @@ def prepare_sentence(sentence):
     tokens = [E_w_to_i['<sos>']] + [E_w_to_i.get(word, E_w_to_i['<pad>']) for word in tokens] + [E_w_to_i['<eos>']]
     return torch.tensor(tokens, dtype=torch.long).unsqueeze(0)  # Add batch dimension
 
-def train(model, epochs, lr, test_sentence="Hello how are you"):
+def train(model, epochs, lr, test_sentence="I don't have any rooms for rent."):
     optimizer = Adam(model.parameters(), lr=lr)
     loss_fn = CrossEntropyLoss()
     best_loss = float('inf')
@@ -49,8 +49,11 @@ def train(model, epochs, lr, test_sentence="Hello how are you"):
         batch_count = 0
         
         for batch in batched_dataset:
-            optimizer.zero_grad()
             X, y = batch
+            # print(f"Batch size X: {X.size(0)}, y: {y.size(0)}")
+            
+            optimizer.zero_grad()
+
             # Move both input and target to the same device
             X = X.to(device)
             y = y.to(device)
@@ -88,7 +91,7 @@ def train(model, epochs, lr, test_sentence="Hello how are you"):
             hn, cn = model.encoder(test_input)
             
             # Initialize decoder input with <sos> token
-            decoder_input = torch.tensor([[F_w_to_i['<sos>']]], device=device)
+            decoder_input = torch.tensor([F_w_to_i['<sos>']], device=device).unsqueeze(0)  # shape: [1, 1]
             
             # Generate translation
             translation = []
