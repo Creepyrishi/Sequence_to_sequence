@@ -97,7 +97,7 @@ def train(model, epochs, lr, test_sentence="I don't have any rooms for rent."):
             print(decoder_input.shape)
             # Generate translation
             translation = []
-            for _ in range(20):  # Maximum length of translation
+            for _ in range(50):  # Maximum length of translation
 
                 output, hn, cn = model.decoder(decoder_input, hn, cn)
                 
@@ -117,7 +117,7 @@ def train(model, epochs, lr, test_sentence="I don't have any rooms for rent."):
             translation_words = [F_i_to_w[idx] for idx in translation]
             translation_text = ' '.join(translation_words)
             print(f"Test translation: {test_sentence} -> {translation_text}")
-            break
+            
         
         print("-" * 50)
 
