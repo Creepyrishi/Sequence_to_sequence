@@ -3,6 +3,7 @@ from torch.optim import Adam
 from torch.nn import CrossEntropyLoss
 from data import get_batched_dataset, get_vocab_sizes, get_word_index
 from model import Seq2Seq, Encoder, Decoder
+from data import tokenize_with_punctuation
 import os
 
 # Set device
@@ -15,12 +16,12 @@ F_vocab_size, E_vocab_size = get_vocab_sizes()
 E_w_to_i, E_i_to_w, F_w_to_i, F_i_to_w = get_word_index()
 
 # Model hyperparameters
-embedding_size = 256
-hidden_size = 512
+embedding_size = 200
+hidden_size = 200
 num_layers = 2
 dropout = 0.5
-learning_rate = 0.001
-epochs = 10
+learning_rate = 0.01
+epochs = 7
 
 # Initialize model
 encoder = Encoder(E_vocab_size, embedding_size, hidden_size, num_layers, dropout)
@@ -30,10 +31,10 @@ model = model.to(device)
 
 def prepare_sentence(sentence):
     """Prepare a sentence for translation by tokenizing and converting to tensor."""
-    from data import tokenize_with_punctuation
     tokens = tokenize_with_punctuation(sentence)
     tokens = [E_w_to_i['<sos>']] + [E_w_to_i.get(word, E_w_to_i['<pad>']) for word in tokens] + [E_w_to_i['<eos>']]
     return torch.tensor(tokens, dtype=torch.long).unsqueeze(0)  # Add batch dimension
+
 
 def train(model, epochs, lr, test_sentence="I don't have any rooms for rent."):
     optimizer = Adam(model.parameters(), lr=lr)
@@ -89,17 +90,23 @@ def train(model, epochs, lr, test_sentence="I don't have any rooms for rent."):
             
             # Get encoder output
             hn, cn = model.encoder(test_input)
+
             
             # Initialize decoder input with <sos> token
             decoder_input = torch.tensor([F_w_to_i['<sos>']], device=device).unsqueeze(0)  # shape: [1, 1]
-            
+            print(decoder_input.shape)
             # Generate translation
             translation = []
-            for _ in range(50):  # Maximum length of translation
+            for _ in range(20):  # Maximum length of translation
+
                 output, hn, cn = model.decoder(decoder_input, hn, cn)
+                
                 predicted_token = output.argmax(dim=-1)
                 translation.append(predicted_token.item())
                 
+                print("Input shape:", output.shape)
+
+
                 # Stop if we predict <eos>
                 if predicted_token.item() == F_w_to_i['<eos>']:
                     break
@@ -110,6 +117,7 @@ def train(model, epochs, lr, test_sentence="I don't have any rooms for rent."):
             translation_words = [F_i_to_w[idx] for idx in translation]
             translation_text = ' '.join(translation_words)
             print(f"Test translation: {test_sentence} -> {translation_text}")
+            break
         
         print("-" * 50)
 

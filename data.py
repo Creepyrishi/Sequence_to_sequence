@@ -6,6 +6,7 @@ import re
 
 torch.manual_seed(7)
 df = pd.read_csv('data/eng_-french.csv')
+# df = df[:500]
 
 def tokenize_with_punctuation(text):
     # splits on words and punctuation, keeping both

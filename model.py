@@ -10,14 +10,17 @@ class Encoder(nn.Module):
         self.num_layer = num_layer
 
         self.embed = nn.Embedding(num_embeddings=self.vocab_size, embedding_dim=self.embedding_size)
-        self.rnn = nn.LSTM(input_size=self.embedding_size, hidden_size=self.hidden_size, num_layers=self.num_layer, dropout=p)
+        self.rnn = nn.LSTM(input_size=self.embedding_size, hidden_size=self.hidden_size, num_layers=self.num_layer, dropout=p,  batch_first= True)
     
     def forward(self, X):
         embed = self.embed(X)
         # Shape (vocab_size, embedding_size)
         output, (hn, cn)  = self.rnn(embed)
-        # Shape of hn, cn (no of direction * layers of LSTM, batch size, no. of nodes in lstm)
-        # Shape of output (no. of token (time steps), batch size, no. of nodes * no. of direction)
+        # Shape of hn, cn (batch size, no of direction * layers of LSTM, no. of nodes in lstm)
+        # Shape of output (batch size, no. of token (time steps), no. of nodes * no. of direction)
+
+
+
         return hn, cn
     
 
@@ -30,7 +33,7 @@ class Decoder(nn.Module):
         self.num_layer = num_layer
 
         self.embed = nn.Embedding(num_embeddings=self.vocab_size, embedding_dim=self.embedding_size)
-        self.rnn = nn.LSTM(input_size=self.embedding_size, hidden_size=self.hidden_size, num_layers=self.num_layer, dropout=p)
+        self.rnn = nn.LSTM(input_size=self.embedding_size, hidden_size=self.hidden_size, num_layers=self.num_layer, dropout=p, batch_first= True)
         self.fc = nn.Linear(in_features=self.hidden_size, out_features=self.vocab_size)
 
     def forward(self, X, hidden, cell):
@@ -63,18 +66,18 @@ class Seq2Seq(nn.Module):
 
         hn, cn = self.encoder(source)
 
-        no_of_token_in_target, batch_size = target.shape
-        outputs = torch.zeros(size=(no_of_token_in_target,  batch_size, self.decoder.vocab_size), device=source.device)
-        # Shape of outputs (no of token, batch size, vocab_size_frech)
+        batch_size, no_of_token_in_target = target.shape
+        outputs = torch.zeros(size=(batch_size, no_of_token_in_target, self.decoder.vocab_size), device=source.device)
+        # Shape of outputs (batch size, no of token,  vocab_size_frech)
 
-        teach = target[0] # Setting first word
+        teach = target[:, 0] # Setting first word
         for t in range(1, no_of_token_in_target):
                     
-            # print("Input shape:", teach.shape)
-            # print("Hidden shape:", hn.shape)
-            # print("Cell shape:", cn.shape)
+
+            teach = teach.unsqueeze(1)
             prediction, hn, cn = self.decoder(teach, hn, cn)
-            outputs[t] = prediction
-            teach = target[t, :] # Gets word in 0 postion from all sentences or sequence from whole batch [get the ground truth for teacher forcing
+            prediction = prediction.squeeze(1)
+            outputs[:, t, :] = prediction
+            teach = target[:, t] # Gets word in 0 postion from all sentences or sequence from whole batch [get the ground truth for teacher forcing
 
         return outputs
